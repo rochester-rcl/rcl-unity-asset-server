@@ -1,0 +1,26 @@
+{
+  "name": "rcl-asset-bundle-server",
+  "version": "0.0.1",
+  "description": "Node server for storing Unity Asset Bundles",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "tsc": "tsc",
+    "dev": "ts-node-dev --respawn --transpileOnly ./src/index.ts",
+    "build": "tsc --outDir ./build"
+  },
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "@types/express": "^4.16.1",
+    "@types/express-session": "^1.15.12",
+    "@types/passport": "^1.0.0",
+    "express": "^4.17.1",
+    "express-session": "^1.16.1",
+    "passport": "^0.4.0",
+    "typescript": "^3.5.1"
+  },
+  "devDependencies": {
+    "ts-node-dev": "^1.0.0-pre.39"
+  }
+}
