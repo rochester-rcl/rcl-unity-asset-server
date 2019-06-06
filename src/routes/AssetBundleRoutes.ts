@@ -11,12 +11,10 @@ const initRoutes = (
   const router: express.Router = express.Router();
   router
     .route("/bundles")
-    .post(upload.fields([{ name: "bundle", maxCount: 1 }]), AddBundle)
+    .post(upload.single("bundle"), AddBundle)
     .get(GetBundles);
-   
-    router
-        .route("/bundle/:filename")
-        .get()
+
+  router.route("/bundle/:filename").get();
   return router;
 };
 

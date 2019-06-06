@@ -13,12 +13,12 @@ import { preprocessFileUpload, assetBundleFilter } from "./utils/FileUtils";
 const initMongo = (): Promise<mongoose.Connection> => {
   return new Promise((resolve, reject) => {
     mongoose
-      .createConnection(config.mongoUrl, { useNewUrlParser: true })
-      .then((connection: mongoose.Connection) => {
+      .connect(config.mongoUrl, { useNewUrlParser: true })
+      .then((mongoose: Mongoose) => {
         console.log(
           `Successfully connected to MongoDB on at ${config.mongoUrl}`
         );
-        resolve(connection);
+        resolve(mongoose.connection);
       });
   });
 };

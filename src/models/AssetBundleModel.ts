@@ -1,17 +1,19 @@
-import mongoose from 'mongoose';
-// TODO do we even need this? Need to think further about how this will work
-const abManifest: mongoose.Schema = new mongoose.Schema({
-    
-});
+import mongoose from "mongoose";
 
-const remoteAssetBundle: mongoose.Schema = new mongoose.Schema({
-    versionHash: {
-        type: String,
-        required: true
-    },
+const remoteAssetBundleSchema: mongoose.Schema = new mongoose.Schema({
+  VersionHash: {
+    type: String,
+    required: true
+  },
+  Info: {
     name: {
-        type: String,
-        required: true
+      type: String,
+      required: true
+    },
+    path: {
+      type: String,
+      required: true
     }
+  }
 });
-export default abManifest;
+export default mongoose.model('RemoteAssetBundle', remoteAssetBundleSchema);
