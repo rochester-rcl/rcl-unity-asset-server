@@ -1,16 +1,26 @@
 import mongoose from "mongoose";
 
+export interface IRemoteAssetBundleInfo {
+  Name: string;
+  Path: string;
+}
+
+export interface IRemoteAssetBundle {
+  VersionHash: string;
+  Info: IRemoteAssetBundleInfo;
+}
+
 const remoteAssetBundleSchema: mongoose.Schema = new mongoose.Schema({
   VersionHash: {
     type: String,
     required: true
   },
   Info: {
-    name: {
+    Name: {
       type: String,
       required: true
     },
-    path: {
+    Path: {
       type: String,
       required: true
     }
