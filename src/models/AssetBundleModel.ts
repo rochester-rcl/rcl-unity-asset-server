@@ -10,6 +10,11 @@ export interface IRemoteAssetBundle {
   Info: IRemoteAssetBundleInfo;
 }
 
+export interface IRemoteAssetBundleDocument extends mongoose.Document {
+  VersionHash: string;
+  Info: IRemoteAssetBundleInfo;
+}
+
 const remoteAssetBundleSchema: mongoose.Schema = new mongoose.Schema({
   VersionHash: {
     type: String,
@@ -26,4 +31,4 @@ const remoteAssetBundleSchema: mongoose.Schema = new mongoose.Schema({
     }
   }
 });
-export default mongoose.model('RemoteAssetBundle', remoteAssetBundleSchema);
+export default mongoose.model("RemoteAssetBundle", remoteAssetBundleSchema);
