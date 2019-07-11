@@ -1,9 +1,10 @@
 import express from "express";
-import GridFS from "gridfs-stream";
+import MongoDB from "mongodb";
 import RemoteAssetBundle, {
   IRemoteAssetBundle,
   IRemoteAssetBundleDocument
 } from "../models/AssetBundleModel";
+import GridFSModel from "../models/GridFSModel";
 import mongoose, { version } from "mongoose";
 
 interface IAssetBundleController {
@@ -18,6 +19,8 @@ type FindBundleHandler = (
   bundle: null | IRemoteAssetBundleDocument
 ) => void;
 
+type FindFileHandler = (error: Error, file: any | null) => void;
+
 type SaveBundleHandler = (
   res: express.Response,
   error: Error,
@@ -28,7 +31,10 @@ type RemoteAssetBundleFoundHandler = (
   bundle: IRemoteAssetBundleDocument
 ) => void;
 
-const handleMongooseError = (res: express.Response, error: Error): express.Response | undefined => {
+const handleMongooseError = (
+  res: express.Response,
+  error: Error
+): express.Response | undefined => {
   if (error) return res.json({ error: error });
 };
 
@@ -37,7 +43,18 @@ const findBundle = (
   name: string,
   callback: FindBundleHandler
 ): void => {
-  RemoteAssetBundle.findOne({ VersionHash: versionHash }, callback);
+  RemoteAssetBundle.findOne(
+    { VersionHash: versionHash, "Info.Name": name },
+    callback
+  );
+};
+
+const findFile = (
+  grid: MongoDB.GridFSBucket,
+  versionHash: string,
+  callback: FindFileHandler
+): void => {
+  GridFSModel.findOne({ filename: versionHash }, callback);
 };
 
 const findBundleCallback = (
@@ -58,9 +75,10 @@ const saveBundleCallback = (
   return res.json(bundle);
 };
 
-const initABController = (grid: GridFS.Grid): IAssetBundleController => {
+const initABController = (
+  grid: MongoDB.GridFSBucket
+): IAssetBundleController => {
   const AddBundle = (req: express.Request, res: express.Response): void => {
-
     const handleAddBundle = (error: Error, bundle: mongoose.Document) => {
       if (error) return handleMongooseError(res, error);
       if (bundle) return saveBundleCallback(res, bundle);
@@ -79,14 +97,18 @@ const initABController = (grid: GridFS.Grid): IAssetBundleController => {
 
   const DeleteBundle = (req: express.Request, res: express.Response): void => {
     const { versionhash, name } = req.query;
-    const handleDeleteBundle = (bundle: IRemoteAssetBundleDocument): express.Response => {
+    const handleDeleteBundle = (
+      bundle: IRemoteAssetBundleDocument
+    ): express.Response => {
       RemoteAssetBundle.deleteOne({ _id: bundle._id }, error =>
         handleMongooseError(res, error)
       );
-      grid.remove({ filename: bundle.VersionHash }, error =>
+      GridFSModel.deleteOne({ filename: bundle.VersionHash }, error =>
         handleMongooseError(res, error)
       );
-      return res.json({ success: `Sucessfully deleted Asset Bundle file ${name}`});
+      return res.json({
+        success: `Sucessfully deleted Asset Bundle file ${name}`
+      });
     };
 
     findBundle(versionhash, name, (error, bundle) =>
@@ -113,7 +135,7 @@ const initABController = (grid: GridFS.Grid): IAssetBundleController => {
     const { VersionHash, Info } = bundle;
     const b: IRemoteAssetBundle = {
       Info: Info,
-      VersionHash: VersionHash,
+      VersionHash: VersionHash
     };
     b.Info.Path = `${protocol}://${host}${Info.Path}`;
     return b;
@@ -132,8 +154,17 @@ const initABController = (grid: GridFS.Grid): IAssetBundleController => {
   };
 
   const GetBundle = (req: express.Request, res: express.Response): void => {
-    console.log(req.params);
-    res.json();
+    const { versionhash } = req.query;
+    const { filename } = req.params;
+    const sendBundle = (bundle: IRemoteAssetBundleDocument): void => {
+      findFile(grid, bundle.VersionHash, (error, file) => {
+        if (error) handleMongooseError(res, error);
+        if (file) grid.openDownloadStream(file._id).pipe(res);
+      });
+    };
+    findBundle(versionhash, filename, (error, bundle) =>
+      findBundleCallback(res, error, bundle, sendBundle)
+    );
   };
 
   return {

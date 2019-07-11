@@ -7,9 +7,10 @@ import bodyParser from "body-parser";
 import multer from "multer";
 import mongoose, { Mongoose } from "mongoose";
 import GridFsStorage from "multer-gridfs-storage";
-import GridFS from "gridfs-stream";
+import MongoDB from "mongodb";
 import { preprocessFileUpload, assetBundleFilter } from "./utils/FileUtils";
 
+// TODO Replace gridfs-stream with official MongoDB stream API
 const initMongo = (): Promise<mongoose.Connection> => {
   return new Promise((resolve, reject) => {
     mongoose
@@ -25,15 +26,15 @@ const initMongo = (): Promise<mongoose.Connection> => {
 
 const initGFS = (
   connection: mongoose.Connection
-): Promise<[mongoose.Connection, GridFS.Grid]> => {
+): Promise<[mongoose.Connection, MongoDB.GridFSBucket]> => {
   return new Promise((resolve, reject) => {
-    resolve([connection, GridFS(connection.db, mongoose.mongo)]);
+    resolve([connection, new MongoDB.GridFSBucket(connection.db)]);
   });
 };
 
 const initServer = (
   connection: mongoose.Connection,
-  grid: GridFS.Grid
+  grid: MongoDB.GridFSBucket
 ): void => {
   // TODO will implement Mongo w/ GridFS for storage
   const storage: GridFsStorage = new GridFsStorage({
