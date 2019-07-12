@@ -107,7 +107,7 @@ const initABController = (
       GridFSModel.deleteOne({ filename: bundle.VersionHash }, error =>
         handleMongooseError(res, error)
       );
-      GridFSChunkModel.deleteOne({ filename: bundle.VersionHash}, error =>
+      GridFSChunkModel.deleteOne({ filename: bundle.VersionHash }, error =>
         handleMongooseError(res, error) 
       );
       console.log(`Successfully deleted Asset Bundle ${bundle.Info.Name} version ${bundle.VersionHash}`);
