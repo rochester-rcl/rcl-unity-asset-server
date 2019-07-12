@@ -4,7 +4,7 @@ import RemoteAssetBundle, {
   IRemoteAssetBundle,
   IRemoteAssetBundleDocument
 } from "../models/AssetBundleModel";
-import GridFSModel from "../models/GridFSModel";
+import GridFSModel, { GridFSChunkModel } from "../models/GridFSModel";
 import mongoose, { version } from "mongoose";
 
 interface IAssetBundleController {
@@ -72,6 +72,7 @@ const saveBundleCallback = (
   bundle: mongoose.Document
 ): express.Response => {
   console.log("Successfully saved AssetBundle");
+  res.status(201);
   return res.json(bundle);
 };
 
@@ -106,6 +107,10 @@ const initABController = (
       GridFSModel.deleteOne({ filename: bundle.VersionHash }, error =>
         handleMongooseError(res, error)
       );
+      GridFSChunkModel.deleteOne({ filename: bundle.VersionHash}, error =>
+        handleMongooseError(res, error) 
+      );
+      console.log(`Successfully deleted Asset Bundle ${bundle.Info.Name} version ${bundle.VersionHash}`);
       return res.json({
         success: `Sucessfully deleted Asset Bundle file ${name}`
       });
