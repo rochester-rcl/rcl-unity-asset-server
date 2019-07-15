@@ -39,7 +39,7 @@ export const saveJWT = (
 ): boolean => {
   const token = signJWT(payload, privateKeyPath);
   if (token) {
-    try {
+    try { 
       fs.writeFileSync(outPath, token, { encoding: "utf8" });
       return true;
     } catch (error) {

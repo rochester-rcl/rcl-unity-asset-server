@@ -1,8 +1,8 @@
 import program from "commander";
-import { saveJWT } from "./AuthUtils";
+import { saveJWT } from "../AuthUtils";
 
 program
-  .option("-e, --email <email>", "an email address")
+  .option("-e, --email <email>", "an email address (used as JWT payload)")
   .option("-o, --output <path>", "path to save the generated token")
   .option(
     "-kp, --keypath <path>",
