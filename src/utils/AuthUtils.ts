@@ -1,7 +1,16 @@
-import jwt from "jsonwebtoken";
+import jwt, { VerifyCallback } from "jsonwebtoken";
 import fs from "fs";
+import {
+  Strategy as JwtStrategy,
+  ExtractJwt,
+  StrategyOptions
+} from "passport-jwt";
+import passport = require("passport");
 
 export type IJWTPayload = object | string | Buffer;
+
+export const PRIVATE_KEY_PATH = process.env.PRIVATE_KEY_PATH || "private.key";
+export const PUBLIC_KEY_PATH = process.env.PUBLIC_KEY_PATH || "public.key";
 
 // TODO add expiration - this might be overkill
 export const signJWT = (
@@ -18,7 +27,7 @@ export const signJWT = (
   }
 };
 
-export const verifyJWT = (
+export const verifyJWTSync = (
   token: string,
   publicKeyPath: string
 ): IJWTPayload | null => {
@@ -32,6 +41,22 @@ export const verifyJWT = (
   }
 };
 
+export const verifyJWT = (
+  token: string,
+  publicKeyPath: string
+): Promise<IJWTPayload> => {
+  return new Promise((resolve, reject) => {
+    fs.readFile(
+      publicKeyPath,
+      { encoding: "utf8" },
+      (error: Error | null, publicKey: string) => {
+        if (error) reject(error);
+        resolve(jwt.verify(token, publicKey));
+      }
+    );
+  });
+};
+
 export const saveJWT = (
   payload: IJWTPayload,
   privateKeyPath: string,
@@ -39,7 +64,7 @@ export const saveJWT = (
 ): boolean => {
   const token = signJWT(payload, privateKeyPath);
   if (token) {
-    try { 
+    try {
       fs.writeFileSync(outPath, token, { encoding: "utf8" });
       return true;
     } catch (error) {
@@ -48,4 +73,19 @@ export const saveJWT = (
     }
   }
   return false;
+};
+
+export const authenticateJWTBearer = (
+  publicKeyPath: string
+): passport.Strategy => {
+  // only gets read once
+  const publicKey = fs.readFileSync(publicKeyPath, "utf8");
+  const options: StrategyOptions = {
+    jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
+    secretOrKey: publicKey
+  };
+  return new JwtStrategy(options, (payload, done) => {
+    if (payload) return done(null, true);
+    return done(null, false);
+  });
 };

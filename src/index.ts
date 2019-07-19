@@ -9,8 +9,16 @@ import mongoose, { Mongoose } from "mongoose";
 import GridFsStorage from "multer-gridfs-storage";
 import MongoDB from "mongodb";
 import { preprocessFileUpload, assetBundleFilter } from "./utils/FileUtils";
+import {
+  authenticateJWTBearer,
+  PRIVATE_KEY_PATH,
+  PUBLIC_KEY_PATH
+} from "./utils/AuthUtils";
+import { initFirebaseApp } from "./utils/FirebaseUtils";
 
-// TODO Replace gridfs-stream with official MongoDB stream API
+import dotenv from "dotenv";
+dotenv.config();
+
 const initMongo = (): Promise<mongoose.Connection> => {
   return new Promise((resolve, reject) => {
     mongoose
@@ -56,8 +64,8 @@ const initServer = (
       saveUninitialized: true
     })
   );
+  passport.use(authenticateJWTBearer(PUBLIC_KEY_PATH));
   app.use(passport.initialize());
-  app.use(passport.session());
   app.use(bodyParser.json());
   app.use(bodyParser.urlencoded({ extended: true }));
   app.use(config.basename, initRouter(upload, grid));

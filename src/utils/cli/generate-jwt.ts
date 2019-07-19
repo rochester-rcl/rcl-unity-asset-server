@@ -5,7 +5,7 @@ program
   .option("-e, --email <email>", "an email address (used as JWT payload)")
   .option("-o, --output <path>", "path to save the generated token")
   .option(
-    "-kp, --keypath <path>",
+    "-k, --keypath <path>",
     "path to the private key (can be absolute or relative)"
   );
 

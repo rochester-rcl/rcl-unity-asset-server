@@ -35,7 +35,7 @@ const handleMongooseError = (
   res: express.Response,
   error: Error
 ): express.Response | undefined => {
-  if (error) return res.json({ error: error });
+  if (error && !res.headersSent) return res.json({ error: error });
 };
 
 const findBundle = (
@@ -69,50 +69,96 @@ const findBundleCallback = (
 
 const saveBundleCallback = (
   res: express.Response,
-  bundle: mongoose.Document
-): express.Response => {
+  bundle: IRemoteAssetBundleDocument
+): Promise<express.Response> => {
   console.log("Successfully saved AssetBundle");
   res.status(201);
-  return res.json(bundle);
+  console.log(bundle);
+  return Promise.resolve(res.json(bundle));
+};
+
+const saveBundleCallbackWithMessage = (
+  res: express.Response,
+  bundle: IRemoteAssetBundleDocument
+): Promise<express.Response> => {
+  return bundle
+    .sendMessage()
+    .then(status => {
+      console.log(status);
+      res.status(201);
+      return res.json(bundle);
+    })
+    .catch(error => {
+      console.log(error);
+      return res.json(bundle);
+    });
 };
 
 const initABController = (
   grid: MongoDB.GridFSBucket
 ): IAssetBundleController => {
-  const AddBundle = (req: express.Request, res: express.Response): void => {
-    const handleAddBundle = (error: Error, bundle: mongoose.Document) => {
-      if (error) return handleMongooseError(res, error);
-      if (bundle) return saveBundleCallback(res, bundle);
+  const AddBundle = (
+    req: express.Request,
+    res: express.Response
+  ): Promise<express.Response | undefined> => {
+    const handleAddBundle = (bundle: IRemoteAssetBundleDocument) => {
+      return saveBundleCallback(res, bundle);
+    };
+
+    const handleAddBundleWithMessage = (bundle: IRemoteAssetBundleDocument) => {
+      return saveBundleCallbackWithMessage(res, bundle);
     };
 
     const file: Express.Multer.File = req.file;
     const bundle = new RemoteAssetBundle({
       VersionHash: file.filename,
+      AppName: req.body.AppName,
       Info: {
         Name: file.originalname,
         Path: `/bundle/${file.originalname}`
       }
-    });
-    bundle.save(handleAddBundle);
+    }) as IRemoteAssetBundleDocument;
+
+    if (req.body.message) {
+      bundle.Message = { Text: req.body.message };
+      return bundle
+        .save()
+        .then(handleAddBundleWithMessage)
+        .catch(error => handleMongooseError(res, error));
+    } else {
+      return bundle
+        .save()
+        .then(handleAddBundle)
+        .catch(error => handleMongooseError(res, error));
+    }
   };
 
   const DeleteBundle = (req: express.Request, res: express.Response): void => {
     const { versionhash, name } = req.query;
-    const handleDeleteBundle = (
-      bundle: IRemoteAssetBundleDocument
-    ): express.Response => {
-      RemoteAssetBundle.deleteOne({ _id: bundle._id }, error =>
-        handleMongooseError(res, error)
-      );
-      GridFSModel.deleteOne({ filename: bundle.VersionHash }, error =>
-        handleMongooseError(res, error)
-      );
-      GridFSChunkModel.deleteOne({ filename: bundle.VersionHash }, error =>
-        handleMongooseError(res, error) 
-      );
-      console.log(`Successfully deleted Asset Bundle ${bundle.Info.Name} version ${bundle.VersionHash}`);
-      return res.json({
-        success: `Sucessfully deleted Asset Bundle file ${name}`
+
+    const deleteFiles = (filename: string): void => {
+      findFile(grid, filename, (error, file) => {
+        GridFSModel.deleteOne({ _id: file._id }, error =>
+          handleMongooseError(res, error)
+        );
+        GridFSChunkModel.deleteOne({ files_id: file._id }, error =>
+          handleMongooseError(res, error)
+        );
+      });
+    };
+
+    const handleDeleteBundle = (bundle: IRemoteAssetBundleDocument): void => {
+      RemoteAssetBundle.deleteOne({ _id: bundle._id }, error => {
+        handleMongooseError(res, error);
+        deleteFiles(bundle.VersionHash);
+        console.log(
+          `Successfully deleted Asset Bundle ${bundle.Info.Name} version ${
+            bundle.VersionHash
+          }`
+        );
+        res.json({
+          success: `Sucessfully deleted Asset Bundle file ${name}`
+        });
       });
     };
 
@@ -120,6 +166,8 @@ const initABController = (
       findBundleCallback(res, error, bundle, handleDeleteBundle)
     );
   };
+
+  // TODO should be moved to mongoose schema virtual property
 
   const patchBundles = (
     bundles: IRemoteAssetBundleDocument[],
@@ -137,20 +185,23 @@ const initABController = (
     host?: string
   ): IRemoteAssetBundle => {
     //@ts-ignore
-    const { VersionHash, Info } = bundle;
+    const { VersionHash, Info, AppName } = bundle;
     const b: IRemoteAssetBundle = {
       Info: Info,
-      VersionHash: VersionHash
+      VersionHash: VersionHash,
+      AppName: AppName
     };
     b.Info.Path = `${protocol}://${host}${Info.Path}`;
     return b;
   };
 
   const GetBundles = (req: express.Request, res: express.Response): void => {
+    const { appname } = req.query;
+    const query = appname ? { AppName: appname } : {};
     RemoteAssetBundle.find(
-      {},
+      query,
       (error: Error, bundles: IRemoteAssetBundleDocument[]) => {
-        if (error) console.log(error);
+        handleMongooseError(res, error);
         return res.json({
           Bundles: patchBundles(bundles, req.protocol, req.get("host"))
         });

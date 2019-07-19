@@ -21,3 +21,5 @@ public/*.png
 # private
 server-config.ts
 server-config.js
+remote-asset-token.txt
+firebase-creds.json
