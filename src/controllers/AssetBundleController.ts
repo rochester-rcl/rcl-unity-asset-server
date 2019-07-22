@@ -5,7 +5,7 @@ import RemoteAssetBundle, {
   IRemoteAssetBundleDocument
 } from "../models/AssetBundleModel";
 import GridFSModel, { GridFSChunkModel } from "../models/GridFSModel";
-import mongoose, { version } from "mongoose";
+
 
 interface IAssetBundleController {
   AddBundle: (req: express.Request, res: express.Response) => void;
@@ -35,7 +35,10 @@ const handleMongooseError = (
   res: express.Response,
   error: Error
 ): express.Response | undefined => {
-  if (error && !res.headersSent) return res.json({ error: error });
+  if (error && !res.headersSent) {
+    console.log(error);
+    return res.json({ error: error });
+  }
 };
 
 const findBundle = (
@@ -73,7 +76,6 @@ const saveBundleCallback = (
 ): Promise<express.Response> => {
   console.log("Successfully saved AssetBundle");
   res.status(201);
-  console.log(bundle);
   return Promise.resolve(res.json(bundle));
 };
 
@@ -81,10 +83,10 @@ const saveBundleCallbackWithMessage = (
   res: express.Response,
   bundle: IRemoteAssetBundleDocument
 ): Promise<express.Response> => {
+  console.log("Successfully saved AssetBundle");
   return bundle
     .sendMessage()
     .then(status => {
-      console.log(status);
       res.status(201);
       return res.json(bundle);
     })

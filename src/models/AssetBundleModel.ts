@@ -2,6 +2,11 @@ import mongoose from "mongoose";
 import * as admin from "firebase-admin";
 import { initFirebaseApp } from "../utils/FirebaseUtils";
 
+/* TODO need to add ability to send messages on a delay or have some type of verification system 
+* - i.e. update manifest only for dev version of the app and require a sign off to make sure it works.
+* Maybe on the client side (i.e Unity) we can add the option for a dev topic or something.
+*/
+
 export interface IRemoteAssetBundleInfo {
   Name: string;
   Path: string;
@@ -26,8 +31,6 @@ export interface IMessage {
   Success?: boolean;
 }
 
-// TODO add Firebase topic to message
-
 const remoteAssetBundleSchema: mongoose.Schema = new mongoose.Schema({
   VersionHash: {
     type: String,
@@ -41,7 +44,7 @@ const remoteAssetBundleSchema: mongoose.Schema = new mongoose.Schema({
     requred: false,
     Text: {
       type: String,
-      required: true
+      required: false
     },
     Success: {
       type: Boolean,
@@ -60,51 +63,64 @@ const remoteAssetBundleSchema: mongoose.Schema = new mongoose.Schema({
   }
 });
 
-remoteAssetBundleSchema.methods.sayHi = function(): Promise<boolean> {
-  return Promise.resolve(true);
-}
-
-const sendFirebaseMessage = (message: admin.messaging.Message): Promise<string> => {
-  let app: admin.app.App | undefined;
-  const sendMessage = () => {
-    if (!app) {
-      app = initFirebaseApp();
-    }
+remoteAssetBundleSchema.statics.initMessaging = function() {
+  if (!this.app) {
+    this.app = initFirebaseApp();
+  }
+  const sendMessage = (message: admin.messaging.Message): Promise<string> => {
     try {
-      const messaging = app.messaging();
-      return messaging.send(message).then((response) => response).catch((error) => error);
+      const messaging = this.app.messaging();
+      return messaging
+        .send(message)
+        .then((response: string) => response)
+        .catch((error: Error) => error);
     } catch (error) {
       return Promise.reject(error);
     }
-  }
-  return sendMessage();
-}
-  
+  };
+  return sendMessage;
+};
 
 remoteAssetBundleSchema.methods.sendMessage = function(): Promise<string> {
-  const onMessageSent = (bundleId: string, status: boolean): void => {
-    this.module("RemoteAssetBundle").findOne(
+  const _model = this.model("RemoteAssetBundle");
+  const sendFirebaseMessage = _model.initMessaging();
+
+  const onMessageSent = (
+    bundleId: string,
+    message?: string,
+    error?: Error
+  ): Promise<string> => {
+    let err: string = error ? error.message : "";
+    _model.findOne(
       { _id: bundleId },
       (error: Error, bundle: IRemoteAssetBundleDocument) => {
+        if (error) err += error.message;
         if (bundle.Message) {
-          bundle.Message.Success = status;
+          bundle.Message.Success = message ? true : false;
         }
       }
     );
+    return message
+      ? Promise.resolve(message)
+      : Promise.reject(
+          `There was an error sending the message for bundle with id: ${bundleId}. Error Info: ${err}`
+        );
   };
 
-  const { Message, AppName } = this;
+  const { Message, AppName, _id } = this;
   if (Message) {
     const message: admin.messaging.Message = {
       notification: {
         title: `New content available for ${AppName}!`,
-        body: Message.Text,
+        body: Message.Text
       },
-      topic: AppName
+      topic: AppName.replace(/\s+/g, "-")
     };
-    return sendFirebaseMessage(message).catch((error) => Promise.reject(error));
+    return sendFirebaseMessage(message)
+      .then((message: string) => onMessageSent(_id, message))
+      .catch((error: Error) => onMessageSent(_id, undefined, error));
   } else {
-    return Promise.reject('No message attached to AssetBundle');
+    return Promise.reject("No message attached to AssetBundle");
   }
 };
 

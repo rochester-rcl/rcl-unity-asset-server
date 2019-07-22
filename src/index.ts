@@ -14,7 +14,7 @@ import {
   PRIVATE_KEY_PATH,
   PUBLIC_KEY_PATH
 } from "./utils/AuthUtils";
-import { initFirebaseApp } from "./utils/FirebaseUtils";
+
 
 import dotenv from "dotenv";
 dotenv.config();
