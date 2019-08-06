@@ -8,7 +8,7 @@ const initRoutes = (
   upload: multer.Instance,
   grid: MongoDB.GridFSBucket
 ): express.Router => {
-  const { AddBundle, GetBundles, GetBundle, DeleteBundle } = initABController(
+  const { AddBundle, UpdateBundle, GetBundles, GetBundle, DeleteBundle } = initABController(
     grid
   );
   const router: express.Router = express.Router();
@@ -18,7 +18,9 @@ const initRoutes = (
     .delete(DeleteBundle)
     .get(GetBundles);
 
-  router.route("/bundles/:filename").get(GetBundle);
+  router.route("/bundles/:filename")
+        .get(GetBundle)
+        .put(passport.authenticate('jwt', {session: false}), UpdateBundle);
   return router;
 };
 

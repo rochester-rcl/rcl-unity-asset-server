@@ -6,9 +6,9 @@ import RemoteAssetBundle, {
 } from "../models/AssetBundleModel";
 import GridFSModel, { GridFSChunkModel } from "../models/GridFSModel";
 
-
 interface IAssetBundleController {
   AddBundle: (req: express.Request, res: express.Response) => void;
+  UpdateBundle: (req: express.Request, res: express.Response) => void;
   GetBundles: (req: express.Request, res: express.Response) => void;
   GetBundle: (req: express.Request, res: express.Response) => void;
   DeleteBundle: (req: express.Request, res: express.Response) => void;
@@ -115,6 +115,7 @@ const initABController = (
     const bundle = new RemoteAssetBundle({
       VersionHash: file.filename,
       AppName: req.body.AppName,
+      Verified: false,
       Info: {
         Name: file.originalname,
         Path: `/bundle/${file.originalname}`
@@ -187,19 +188,26 @@ const initABController = (
     host?: string
   ): IRemoteAssetBundle => {
     //@ts-ignore
-    const { VersionHash, Info, AppName } = bundle;
+    const { VersionHash, Info, AppName, Verified } = bundle;
     const b: IRemoteAssetBundle = {
       Info: Info,
       VersionHash: VersionHash,
-      AppName: AppName
+      AppName: AppName,
+      Verified: Verified
     };
     b.Info.Path = `${protocol}://${host}${Info.Path}`;
     return b;
   };
 
   const GetBundles = (req: express.Request, res: express.Response): void => {
-    const { appname } = req.query;
-    const query = appname ? { AppName: appname } : {};
+    const { appname, verified } = req.query;
+    const query: any = {};
+    if (appname) query.AppName = appname;
+    if (verified === 'True') {
+      query.Verified = true;
+    } else {
+      query.Verified = false;
+    }
     RemoteAssetBundle.find(
       query,
       (error: Error, bundles: IRemoteAssetBundleDocument[]) => {
@@ -225,8 +233,22 @@ const initABController = (
     );
   };
 
+  const UpdateBundle = (req: express.Request, res: express.Response): void => {
+    const { filename } = req.params;
+    const { versionhash } = req.query;
+    const { verified } = req.body;
+    const handleUpdateBundle = (bundle: IRemoteAssetBundleDocument): void => {
+      bundle.Verified = verified;
+      bundle.save().then(b => saveBundleCallback(res, b));
+    };
+    findBundle(versionhash, filename, (error, bundle) =>
+      findBundleCallback(res, error, bundle, handleUpdateBundle)
+    );
+  };
+
   return {
     AddBundle: AddBundle,
+    UpdateBundle: UpdateBundle,
     GetBundles: GetBundles,
     GetBundle: GetBundle,
     DeleteBundle: DeleteBundle

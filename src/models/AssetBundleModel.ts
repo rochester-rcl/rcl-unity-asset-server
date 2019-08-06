@@ -16,6 +16,7 @@ export interface IRemoteAssetBundle {
   VersionHash: string;
   Info: IRemoteAssetBundleInfo;
   AppName: string;
+  Verified: boolean;
 }
 
 export interface IRemoteAssetBundleDocument extends mongoose.Document {
@@ -23,6 +24,7 @@ export interface IRemoteAssetBundleDocument extends mongoose.Document {
   Info: IRemoteAssetBundleInfo;
   Message?: IMessage;
   AppName: string;
+  Verified: boolean;
   sendMessage: () => Promise<boolean>;
 }
 
@@ -38,6 +40,10 @@ const remoteAssetBundleSchema: mongoose.Schema = new mongoose.Schema({
   },
   AppName: {
     type: String,
+    required: true
+  },
+  Verified: {
+    type: Boolean,
     required: true
   },
   Message: {
