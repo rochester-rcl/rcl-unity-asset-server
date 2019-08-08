@@ -12,6 +12,8 @@ interface IAssetBundleController {
   GetBundles: (req: express.Request, res: express.Response) => void;
   GetBundle: (req: express.Request, res: express.Response) => void;
   DeleteBundle: (req: express.Request, res: express.Response) => void;
+  CheckEndpoint: (req: express.Request, res: express.Response) => void;
+  CheckJWT: (req: express.Request, res: express.Response) => void;
 }
 
 type FindBundleHandler = (
@@ -246,12 +248,22 @@ const initABController = (
     );
   };
 
+  const CheckEndpoint = (req: express.Request, res: express.Response): void => {
+    res.json({});
+  }
+
+  const CheckJWT = (req: express.Request, res: express.Response): void => {
+    res.json({});
+  }
+
   return {
     AddBundle: AddBundle,
     UpdateBundle: UpdateBundle,
     GetBundles: GetBundles,
     GetBundle: GetBundle,
-    DeleteBundle: DeleteBundle
+    DeleteBundle: DeleteBundle,
+    CheckEndpoint: CheckEndpoint,
+    CheckJWT: CheckJWT
   };
 };
 
