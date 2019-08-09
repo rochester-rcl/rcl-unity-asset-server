@@ -112,7 +112,8 @@ remoteAssetBundleSchema.methods.sendMessage = function(): Promise<string> {
           `There was an error sending the message for bundle with id: ${bundleId}. Error Info: ${err}`
         );
   };
-
+  // TODO do we also add title to message / IMessage? Probably should ...
+  // TODO also need to reformate AppName for display
   const { Message, AppName, _id } = this;
   if (Message) {
     const message: admin.messaging.Message = {
