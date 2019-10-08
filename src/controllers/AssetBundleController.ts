@@ -2,18 +2,19 @@ import express from "express";
 import MongoDB from "mongodb";
 import RemoteAssetBundle, {
   IRemoteAssetBundle,
-  IRemoteAssetBundleDocument
+  IRemoteAssetBundleDocument,
+  IMessage
 } from "../models/AssetBundleModel";
 import GridFSModel, { GridFSChunkModel } from "../models/GridFSModel";
 
 interface IAssetBundleController {
-  AddBundle: (req: express.Request, res: express.Response) => void;
-  UpdateBundle: (req: express.Request, res: express.Response) => void;
-  GetBundles: (req: express.Request, res: express.Response) => void;
-  GetBundle: (req: express.Request, res: express.Response) => void;
-  DeleteBundle: (req: express.Request, res: express.Response) => void;
-  CheckEndpoint: (req: express.Request, res: express.Response) => void;
-  CheckJWT: (req: express.Request, res: express.Response) => void;
+  addBundle: (req: express.Request, res: express.Response) => void;
+  updateBundle: (req: express.Request, res: express.Response) => void;
+  getBundles: (req: express.Request, res: express.Response) => void;
+  getBundle: (req: express.Request, res: express.Response) => void;
+  deleteBundle: (req: express.Request, res: express.Response) => void;
+  checkEndpoint: (req: express.Request, res: express.Response) => void;
+  checkJWT: (req: express.Request, res: express.Response) => void;
 }
 
 type FindBundleHandler = (
@@ -49,7 +50,7 @@ const findBundle = (
   callback: FindBundleHandler
 ): void => {
   RemoteAssetBundle.findOne(
-    { VersionHash: versionHash, "Info.Name": name },
+    { versionHash: versionHash, "info.name": name },
     callback
   );
 };
@@ -101,7 +102,7 @@ const saveBundleCallbackWithMessage = (
 const initABController = (
   grid: MongoDB.GridFSBucket
 ): IAssetBundleController => {
-  const AddBundle = (
+  const addBundle = (
     req: express.Request,
     res: express.Response
   ): Promise<express.Response | undefined> => {
@@ -115,17 +116,18 @@ const initABController = (
 
     const file: Express.Multer.File = req.file;
     const bundle = new RemoteAssetBundle({
-      VersionHash: file.filename,
-      AppName: req.body.AppName,
-      Verified: false,
-      Info: {
-        Name: file.originalname,
-        Path: `/bundle/${file.originalname}`
+      versionHash: file.filename,
+      appName: req.body.AppName,
+      verified: false,
+      info: {
+        name: file.originalname,
+        path: `/bundle/${file.originalname}`
       }
     }) as IRemoteAssetBundleDocument;
 
     if (req.body.message) {
-      bundle.Message = { Text: req.body.message };
+      const message: IMessage = JSON.parse(req.body.message);
+      bundle.message = message;
       return bundle
         .save()
         .then(handleAddBundleWithMessage)
@@ -138,7 +140,7 @@ const initABController = (
     }
   };
 
-  const DeleteBundle = (req: express.Request, res: express.Response): void => {
+  const deleteBundle = (req: express.Request, res: express.Response): void => {
     const { versionhash, name } = req.query;
 
     const deleteFiles = (filename: string): void => {
@@ -155,10 +157,10 @@ const initABController = (
     const handleDeleteBundle = (bundle: IRemoteAssetBundleDocument): void => {
       RemoteAssetBundle.deleteOne({ _id: bundle._id }, error => {
         handleMongooseError(res, error);
-        deleteFiles(bundle.VersionHash);
+        deleteFiles(bundle.versionHash);
         console.log(
-          `Successfully deleted Asset Bundle ${bundle.Info.Name} version ${
-            bundle.VersionHash
+          `Successfully deleted Asset Bundle ${bundle.info.name} version ${
+            bundle.versionHash
           }`
         );
         res.json({
@@ -190,42 +192,42 @@ const initABController = (
     host?: string
   ): IRemoteAssetBundle => {
     //@ts-ignore
-    const { VersionHash, Info, AppName, Verified } = bundle;
+    const { versionHash, info, appName, verified } = bundle;
     const b: IRemoteAssetBundle = {
-      Info: Info,
-      VersionHash: VersionHash,
-      AppName: AppName,
-      Verified: Verified
+      info: info,
+      versionHash: versionHash,
+      appName: appName,
+      verified: verified
     };
-    b.Info.Path = `${protocol}://${host}${Info.Path}`;
+    b.info.path = `${protocol}://${host}${info.path}`;
     return b;
   };
 
-  const GetBundles = (req: express.Request, res: express.Response): void => {
+  const getBundles = (req: express.Request, res: express.Response): void => {
     const { appname, verified } = req.query;
     const query: any = {};
-    if (appname) query.AppName = appname;
+    if (appname) query.appName = appname;
     if (verified === 'True') {
-      query.Verified = true;
+      query.verified = true;
     } else {
-      query.Verified = false;
+      query.verified = false;
     }
     RemoteAssetBundle.find(
       query,
       (error: Error, bundles: IRemoteAssetBundleDocument[]) => {
         handleMongooseError(res, error);
         return res.json({
-          Bundles: patchBundles(bundles, req.protocol, req.get("host"))
+          bundles: patchBundles(bundles, req.protocol, req.get("host"))
         });
       }
     );
   };
 
-  const GetBundle = (req: express.Request, res: express.Response): void => {
+  const getBundle = (req: express.Request, res: express.Response): void => {
     const { versionhash } = req.query;
     const { filename } = req.params;
     const sendBundle = (bundle: IRemoteAssetBundleDocument): void => {
-      findFile(grid, bundle.VersionHash, (error, file) => {
+      findFile(grid, bundle.versionHash, (error, file) => {
         if (error) handleMongooseError(res, error);
         if (file) grid.openDownloadStream(file._id).pipe(res);
       });
@@ -235,12 +237,12 @@ const initABController = (
     );
   };
 
-  const UpdateBundle = (req: express.Request, res: express.Response): void => {
+  const updateBundle = (req: express.Request, res: express.Response): void => {
     const { filename } = req.params;
     const { versionhash } = req.query;
     const { verified } = req.body;
     const handleUpdateBundle = (bundle: IRemoteAssetBundleDocument): void => {
-      bundle.Verified = verified;
+      bundle.verified = verified;
       bundle.save().then(b => saveBundleCallback(res, b));
     };
     findBundle(versionhash, filename, (error, bundle) =>
@@ -248,22 +250,22 @@ const initABController = (
     );
   };
 
-  const CheckEndpoint = (req: express.Request, res: express.Response): void => {
+  const checkEndpoint = (req: express.Request, res: express.Response): void => {
     res.json({});
   }
 
-  const CheckJWT = (req: express.Request, res: express.Response): void => {
+  const checkJWT = (req: express.Request, res: express.Response): void => {
     res.json({});
   }
 
   return {
-    AddBundle: AddBundle,
-    UpdateBundle: UpdateBundle,
-    GetBundles: GetBundles,
-    GetBundle: GetBundle,
-    DeleteBundle: DeleteBundle,
-    CheckEndpoint: CheckEndpoint,
-    CheckJWT: CheckJWT
+    addBundle: addBundle,
+    updateBundle: updateBundle,
+    getBundles: getBundles,
+    getBundle: getBundle,
+    deleteBundle: deleteBundle,
+    checkEndpoint: checkEndpoint,
+    checkJWT: checkJWT
   };
 };
 

@@ -2,67 +2,81 @@ import mongoose from "mongoose";
 import * as admin from "firebase-admin";
 import { initFirebaseApp } from "../utils/FirebaseUtils";
 
-/* TODO need to add ability to send messages on a delay or have some type of verification system 
-* - i.e. update manifest only for dev version of the app and require a sign off to make sure it works.
-* Maybe on the client side (i.e Unity) we can add the option for a dev topic or something.
-*/
+/* TODO need to add ability to send messages on a delay or have some type of verification system
+ * - i.e. update manifest only for dev version of the app and require a sign off to make sure it works.
+ * Maybe on the client side (i.e Unity) we can add the option for a dev topic or something.
+ */
 
 export interface IRemoteAssetBundleInfo {
-  Name: string;
-  Path: string;
+  name: string;
+  path: string;
 }
 
 export interface IRemoteAssetBundle {
-  VersionHash: string;
-  Info: IRemoteAssetBundleInfo;
-  AppName: string;
-  Verified: boolean;
+  versionHash: string;
+  info: IRemoteAssetBundleInfo;
+  appName: string;
+  verified: boolean;
 }
 
 export interface IRemoteAssetBundleDocument extends mongoose.Document {
-  VersionHash: string;
-  Info: IRemoteAssetBundleInfo;
-  Message?: IMessage;
-  AppName: string;
-  Verified: boolean;
+  versionHash: string;
+  info: IRemoteAssetBundleInfo;
+  message?: IMessage;
+  appName: string;
+  verified: boolean;
   sendMessage: () => Promise<boolean>;
 }
 
 export interface IMessage {
-  Text: string;
-  Success?: boolean;
+  title: string;
+  body: string;
+  success?: boolean;
+  icon?: string;
 }
 
+const messageSchema: mongoose.Schema = new mongoose.Schema({
+  title: {
+    type: String,
+    required: true
+  },
+  body: {
+    type: String,
+    required: true
+  },
+  success: {
+    type: Boolean,
+    required: false
+  },
+  icon: {
+    type: String,
+    required: false
+  }
+});
+
 const remoteAssetBundleSchema: mongoose.Schema = new mongoose.Schema({
-  VersionHash: {
+  versionHash: {
     type: String,
     required: true
   },
-  AppName: {
+  appName: {
     type: String,
     required: true
   },
-  Verified: {
+  verified: {
     type: Boolean,
     required: true
   },
-  Message: {
-    requred: false,
-    Text: {
-      type: String,
-      required: false
-    },
-    Success: {
-      type: Boolean,
-      required: false
-    }
+  message: {
+    type: messageSchema,
+    required: false
   },
-  Info: {
-    Name: {
+  info: {
+    name: {
       type: String,
       required: true
     },
-    Path: {
+    path: {
       type: String,
       required: true
     }
@@ -101,8 +115,9 @@ remoteAssetBundleSchema.methods.sendMessage = function(): Promise<string> {
       { _id: bundleId },
       (error: Error, bundle: IRemoteAssetBundleDocument) => {
         if (error) err += error.message;
-        if (bundle.Message) {
-          bundle.Message.Success = message ? true : false;
+        if (bundle.message) {
+          bundle.message.success = message ? true : false;
+          console.log(`Successfuly sent message ${message}`)
         }
       }
     );
@@ -112,18 +127,28 @@ remoteAssetBundleSchema.methods.sendMessage = function(): Promise<string> {
           `There was an error sending the message for bundle with id: ${bundleId}. Error Info: ${err}`
         );
   };
-  // TODO do we also add title to message / IMessage? Probably should ...
-  // TODO also need to reformate AppName for display
-  const { Message, AppName, _id } = this;
-  if (Message) {
-    const message: admin.messaging.Message = {
-      notification: {
-        title: `New content available for ${AppName}!`,
-        body: Message.Text
-      },
-      topic: AppName.replace(/\s+/g, "-")
+  
+  const { message, appName, _id } = this;
+  if (message) {
+    const firebaseMessage: admin.messaging.Message | admin.messaging.AndroidConfig = {
+      topic: appName.replace(/\s+/g, "-")
     };
-    return sendFirebaseMessage(message)
+    const { body, title } = message;
+    const baseNotification: admin.messaging.Notification = {
+      title: title,
+      body: body
+    };
+    if (message.icon) {
+      const notification: admin.messaging.AndroidNotification = {
+        ...baseNotification,
+        icon: message.icon
+      };
+      firebaseMessage.notification = notification;
+    } else {
+      // TODO should allow for custom title
+      firebaseMessage.notification = baseNotification as admin.messaging.Notification;
+    }
+    return sendFirebaseMessage(firebaseMessage)
       .then((message: string) => onMessageSent(_id, message))
       .catch((error: Error) => onMessageSent(_id, undefined, error));
   } else {

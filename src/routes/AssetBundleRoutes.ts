@@ -9,13 +9,13 @@ const initRoutes = (
   grid: MongoDB.GridFSBucket
 ): express.Router => {
   const {
-    AddBundle,
-    UpdateBundle,
-    GetBundles,
-    GetBundle,
-    DeleteBundle,
-    CheckEndpoint,
-    CheckJWT
+    addBundle,
+    updateBundle,
+    getBundles,
+    getBundle,
+    deleteBundle,
+    checkEndpoint,
+    checkJWT
   } = initABController(grid);
   const router: express.Router = express.Router();
   router
@@ -23,20 +23,20 @@ const initRoutes = (
     .post(
       passport.authenticate("jwt", { session: false }),
       upload.single("bundle"),
-      AddBundle
+      addBundle
     )
-    .delete(DeleteBundle)
-    .get(GetBundles);
+    .delete(deleteBundle)
+    .get(getBundles);
 
   router
     .route("/bundles/:filename")
-    .get(GetBundle)
-    .put(passport.authenticate("jwt", { session: false }), UpdateBundle);
+    .get(getBundle)
+    .put(passport.authenticate("jwt", { session: false }), updateBundle);
 
   router
     .route("/")
-    .get(CheckEndpoint)
-    .post(passport.authenticate("jwt", { session: false }), CheckJWT);
+    .get(checkEndpoint)
+    .post(passport.authenticate("jwt", { session: false }), checkJWT);
 
   return router;
 };
