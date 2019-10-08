@@ -87,13 +87,15 @@ remoteAssetBundleSchema.statics.initMessaging = function() {
   if (!this.app) {
     this.app = initFirebaseApp();
   }
-  const sendMessage = (message: admin.messaging.Message): Promise<string> => {
+  const sendMessage = (
+    message: admin.messaging.Message | admin.messaging.AndroidConfig
+  ): Promise<string> => {
     try {
       const messaging = this.app.messaging();
       return messaging
         .send(message)
         .then((response: string) => response)
-        .catch((error: Error) => error);
+        .catch((error: Error) => Promise.reject(error));
     } catch (error) {
       return Promise.reject(error);
     }
@@ -110,27 +112,29 @@ remoteAssetBundleSchema.methods.sendMessage = function(): Promise<string> {
     message?: string,
     error?: Error
   ): Promise<string> => {
-    let err: string = error ? error.message : "";
+    let err: string = error !== undefined ? error.message : "";
+    if (!message || message.hasOwnProperty("errorInfo"))
+      return Promise.reject(
+        `There was an error sending the message for bundle with id: ${bundleId}. Error Info: ${err}`
+      );
     _model.findOne(
       { _id: bundleId },
       (error: Error, bundle: IRemoteAssetBundleDocument) => {
         if (error) err += error.message;
         if (bundle.message) {
           bundle.message.success = message ? true : false;
-          console.log(`Successfuly sent message ${message}`)
+          if (!err && !error)
+            console.log(`Successfuly sent message ${message}`);
         }
       }
     );
-    return message
-      ? Promise.resolve(message)
-      : Promise.reject(
-          `There was an error sending the message for bundle with id: ${bundleId}. Error Info: ${err}`
-        );
+    return Promise.resolve(message);
   };
-  
   const { message, appName, _id } = this;
   if (message) {
-    const firebaseMessage: admin.messaging.Message | admin.messaging.AndroidConfig = {
+    const firebaseMessage:
+      | admin.messaging.Message
+      | admin.messaging.AndroidConfig = {
       topic: appName.replace(/\s+/g, "-")
     };
     const { body, title } = message;
@@ -143,9 +147,8 @@ remoteAssetBundleSchema.methods.sendMessage = function(): Promise<string> {
         ...baseNotification,
         icon: message.icon
       };
-      firebaseMessage.notification = notification;
+      firebaseMessage.android = { notification: notification };
     } else {
-      // TODO should allow for custom title
       firebaseMessage.notification = baseNotification as admin.messaging.Notification;
     }
     return sendFirebaseMessage(firebaseMessage)
