@@ -115,19 +115,21 @@ const initABController = (
     };
 
     const file: Express.Multer.File = req.file;
+    const { appName, message } = req.body;
     const bundle = new RemoteAssetBundle({
       versionHash: file.filename,
-      appName: req.body.AppName,
+      appName: appName,
       verified: false,
+      date: new Date().toUTCString(),
       info: {
         name: file.originalname,
         path: `/bundle/${file.originalname}`
       }
     }) as IRemoteAssetBundleDocument;
 
-    if (req.body.message) {
-      const message: IMessage = JSON.parse(req.body.message);
-      bundle.message = message;
+    if (message) {
+      const m: IMessage = JSON.parse(message);
+      bundle.message = m;
       return bundle
         .save()
         .then(handleAddBundleWithMessage)
@@ -159,9 +161,7 @@ const initABController = (
         handleMongooseError(res, error);
         deleteFiles(bundle.versionHash);
         console.log(
-          `Successfully deleted Asset Bundle ${bundle.info.name} version ${
-            bundle.versionHash
-          }`
+          `Successfully deleted Asset Bundle ${bundle.info.name} version ${bundle.versionHash}`
         );
         res.json({
           success: `Sucessfully deleted Asset Bundle file ${name}`
@@ -192,12 +192,13 @@ const initABController = (
     host?: string
   ): IRemoteAssetBundle => {
     //@ts-ignore
-    const { versionHash, info, appName, verified } = bundle;
+    const { versionHash, info, appName, verified, date } = bundle;
     const b: IRemoteAssetBundle = {
       info: info,
       versionHash: versionHash,
       appName: appName,
-      verified: verified
+      verified: verified,
+      date: date
     };
     b.info.path = `${protocol}://${host}${info.path}`;
     return b;
@@ -207,7 +208,7 @@ const initABController = (
     const { appname, verified } = req.query;
     const query: any = {};
     if (appname) query.appName = appname;
-    if (verified === 'True') {
+    if (verified === "True") {
       query.verified = true;
     } else {
       query.verified = false;
@@ -236,14 +237,22 @@ const initABController = (
       findBundleCallback(res, error, bundle, sendBundle)
     );
   };
-
+  // TODO do we want to add more control over this? i.e. if it was successful already do we want / need to send it again? 
   const updateBundle = (req: express.Request, res: express.Response): void => {
     const { filename } = req.params;
     const { versionhash } = req.query;
     const { verified } = req.body;
     const handleUpdateBundle = (bundle: IRemoteAssetBundleDocument): void => {
-      bundle.verified = verified;
-      bundle.save().then(b => saveBundleCallback(res, b));
+      if (verified !== undefined) {
+        bundle.verified = verified;
+        if (bundle.verified && bundle.message) {
+          bundle.save().then(b => saveBundleCallbackWithMessage(res, b));
+        } else {
+          bundle.save().then(b => saveBundleCallback(res, b));
+        }
+      } else {
+        res.json({ status: false, message: "bundle was not updated" });
+      }
     };
     findBundle(versionhash, filename, (error, bundle) =>
       findBundleCallback(res, error, bundle, handleUpdateBundle)
@@ -252,11 +261,11 @@ const initABController = (
 
   const checkEndpoint = (req: express.Request, res: express.Response): void => {
     res.json({});
-  }
+  };
 
   const checkJWT = (req: express.Request, res: express.Response): void => {
     res.json({});
-  }
+  };
 
   return {
     addBundle: addBundle,

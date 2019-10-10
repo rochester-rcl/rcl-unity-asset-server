@@ -17,6 +17,7 @@ export interface IRemoteAssetBundle {
   info: IRemoteAssetBundleInfo;
   appName: string;
   verified: boolean;
+  date: string;
 }
 
 export interface IRemoteAssetBundleDocument extends mongoose.Document {
@@ -25,6 +26,7 @@ export interface IRemoteAssetBundleDocument extends mongoose.Document {
   message?: IMessage;
   appName: string;
   verified: boolean;
+  date: string;
   sendMessage: () => Promise<boolean>;
 }
 
@@ -42,6 +44,10 @@ const messageSchema: mongoose.Schema = new mongoose.Schema({
   },
   body: {
     type: String,
+    required: true
+  },
+  sendImmediate: {
+    type: Boolean,
     required: true
   },
   success: {
@@ -66,6 +72,10 @@ const remoteAssetBundleSchema: mongoose.Schema = new mongoose.Schema({
   verified: {
     type: Boolean,
     required: true
+  },
+  date: {
+    type: String,
+    required: false
   },
   message: {
     type: messageSchema,
@@ -103,6 +113,19 @@ remoteAssetBundleSchema.statics.initMessaging = function() {
   return sendMessage;
 };
 
+remoteAssetBundleSchema.methods.isMessageReady = function(): boolean {
+  if (this.message) {
+    const { sendImmediate, success } = this.message;
+    const { verified } = this;
+    if (sendImmediate) return true;
+    if (success) return false;
+    if (verified) return true;
+    return false;
+  } else {
+    return false;
+  }
+};
+
 remoteAssetBundleSchema.methods.sendMessage = function(): Promise<string> {
   const _model = this.model("RemoteAssetBundle");
   const sendFirebaseMessage = _model.initMessaging();
@@ -130,8 +153,8 @@ remoteAssetBundleSchema.methods.sendMessage = function(): Promise<string> {
     );
     return Promise.resolve(message);
   };
-  const { message, appName, _id } = this;
-  if (message) {
+  const { message, appName, _id, verified } = this;
+  if (this.isMessageReady()) {
     const firebaseMessage:
       | admin.messaging.Message
       | admin.messaging.AndroidConfig = {
@@ -155,7 +178,11 @@ remoteAssetBundleSchema.methods.sendMessage = function(): Promise<string> {
       .then((message: string) => onMessageSent(_id, message))
       .catch((error: Error) => onMessageSent(_id, undefined, error));
   } else {
-    return Promise.reject("No message attached to AssetBundle");
+    return Promise.reject(
+      `Not sending message attached to AssetBundle because no message is defined, or verified is ${verified} and sendImmediate is ${
+        message.sendImmediate ? message.sendImmediate : false
+      }`
+    );
   }
 };
 
