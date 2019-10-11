@@ -14,6 +14,7 @@ const initRoutes = (
     getBundles,
     getBundle,
     deleteBundle,
+    sendBundleMessage,
     checkEndpoint,
     checkJWT
   } = initABController(grid);
@@ -25,7 +26,7 @@ const initRoutes = (
       upload.single("bundle"),
       addBundle
     )
-    .delete(deleteBundle)
+    .delete(passport.authenticate("jwt", { session: false }), deleteBundle)
     .get(getBundles);
 
   router
@@ -37,7 +38,10 @@ const initRoutes = (
     .route("/")
     .get(checkEndpoint)
     .post(passport.authenticate("jwt", { session: false }), checkJWT);
-
+  
+  router
+  .route("/messages/:filename")
+  .post(passport.authenticate("jwt", { session: false }), sendBundleMessage);
   return router;
 };
 

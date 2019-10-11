@@ -18,6 +18,7 @@ export interface IRemoteAssetBundle {
   appName: string;
   verified: boolean;
   date: string;
+  messageContent: string;
 }
 
 export interface IRemoteAssetBundleDocument extends mongoose.Document {
@@ -28,6 +29,8 @@ export interface IRemoteAssetBundleDocument extends mongoose.Document {
   verified: boolean;
   date: string;
   sendMessage: () => Promise<boolean>;
+  messageToString: () => string;
+  isMessageReady: () => boolean;
 }
 
 export interface IMessage {
@@ -35,6 +38,7 @@ export interface IMessage {
   body: string;
   success?: boolean;
   icon?: string;
+  sendImmediate?: boolean;
 }
 
 const messageSchema: mongoose.Schema = new mongoose.Schema({
@@ -126,6 +130,13 @@ remoteAssetBundleSchema.methods.isMessageReady = function(): boolean {
   }
 };
 
+remoteAssetBundleSchema.methods.messageToString = function(): string | undefined {
+  if (this.message) {
+    const { title, body, success } = this.message;
+    return `Title: ${title} | Body: ${body} | Sent: ${success}`;
+  }
+}
+
 remoteAssetBundleSchema.methods.sendMessage = function(): Promise<string> {
   const _model = this.model("RemoteAssetBundle");
   const sendFirebaseMessage = _model.initMessaging();
@@ -146,6 +157,7 @@ remoteAssetBundleSchema.methods.sendMessage = function(): Promise<string> {
         if (error) err += error.message;
         if (bundle.message) {
           bundle.message.success = message ? true : false;
+          bundle.save();
           if (!err && !error)
             console.log(`Successfuly sent message ${message}`);
         }

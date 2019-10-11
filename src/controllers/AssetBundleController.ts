@@ -13,6 +13,7 @@ interface IAssetBundleController {
   getBundles: (req: express.Request, res: express.Response) => void;
   getBundle: (req: express.Request, res: express.Response) => void;
   deleteBundle: (req: express.Request, res: express.Response) => void;
+  sendBundleMessage: (req: express.Request, res: express.Response) => void;
   checkEndpoint: (req: express.Request, res: express.Response) => void;
   checkJWT: (req: express.Request, res: express.Response) => void;
 }
@@ -129,6 +130,7 @@ const initABController = (
 
     if (message) {
       const m: IMessage = JSON.parse(message);
+      m.success = false;
       bundle.message = m;
       return bundle
         .save()
@@ -198,21 +200,18 @@ const initABController = (
       versionHash: versionHash,
       appName: appName,
       verified: verified,
-      date: date
+      date: date,
+      messageContent: bundle.messageToString()
     };
     b.info.path = `${protocol}://${host}${info.path}`;
     return b;
   };
 
   const getBundles = (req: express.Request, res: express.Response): void => {
-    const { appname, verified } = req.query;
+    const { appName, verified } = req.query;
     const query: any = {};
-    if (appname) query.appName = appname;
-    if (verified === "True") {
-      query.verified = true;
-    } else {
-      query.verified = false;
-    }
+    if (appName) query.appName = appName;
+    if (verified === "true") query.verified = verified;
     RemoteAssetBundle.find(
       query,
       (error: Error, bundles: IRemoteAssetBundleDocument[]) => {
@@ -237,7 +236,7 @@ const initABController = (
       findBundleCallback(res, error, bundle, sendBundle)
     );
   };
-  // TODO do we want to add more control over this? i.e. if it was successful already do we want / need to send it again? 
+  // TODO do we want to add more control over this? i.e. if it was successful already do we want / need to send it again?
   const updateBundle = (req: express.Request, res: express.Response): void => {
     const { filename } = req.params;
     const { versionhash } = req.query;
@@ -259,6 +258,28 @@ const initABController = (
     );
   };
 
+  const sendBundleMessage = (
+    req: express.Request,
+    res: express.Response
+  ): void => {
+    const { filename } = req.params;
+    const { versionHash } = req.query;
+    const handleSendMessage = (bundle: IRemoteAssetBundleDocument): void => {
+      if (bundle.message) {
+        bundle.message.sendImmediate = true;
+        bundle
+          .sendMessage()
+          .then(status => res.json({ sendStatus: true, statusMessage: status }))
+          .catch(error =>
+            res.json({ sendStatus: false, statusMessage: error })
+          );
+      }
+    };
+    findBundle(versionHash, filename, (error, bundle) =>
+      findBundleCallback(res, error, bundle, handleSendMessage)
+    );
+  };
+
   const checkEndpoint = (req: express.Request, res: express.Response): void => {
     res.json({});
   };
@@ -273,6 +294,7 @@ const initABController = (
     getBundles: getBundles,
     getBundle: getBundle,
     deleteBundle: deleteBundle,
+    sendBundleMessage: sendBundleMessage,
     checkEndpoint: checkEndpoint,
     checkJWT: checkJWT
   };
