@@ -70,8 +70,14 @@ const findBundleCallback = (
   bundle: IRemoteAssetBundleDocument | null,
   callback: RemoteAssetBundleFoundHandler
 ): void => {
+  console.log(error, bundle);
   if (error) handleMongooseError(res, error);
-  if (bundle) callback(bundle);
+  if (bundle) {
+    callback(bundle);
+  } else {
+    res.status(404);
+    res.json({});
+  }
 };
 
 const saveBundleCallback = (
@@ -127,7 +133,6 @@ const initABController = (
         path: `/bundle/${file.originalname}`
       }
     }) as IRemoteAssetBundleDocument;
-
     if (message) {
       const m: IMessage = JSON.parse(message);
       m.success = false;
@@ -145,7 +150,7 @@ const initABController = (
   };
 
   const deleteBundle = (req: express.Request, res: express.Response): void => {
-    const { versionhash, name } = req.query;
+    const { versionHash, name } = req.query;
 
     const deleteFiles = (filename: string): void => {
       findFile(grid, filename, (error, file) => {
@@ -171,7 +176,7 @@ const initABController = (
       });
     };
 
-    findBundle(versionhash, name, (error, bundle) =>
+    findBundle(versionHash, name, (error, bundle) =>
       findBundleCallback(res, error, bundle, handleDeleteBundle)
     );
   };
@@ -273,6 +278,11 @@ const initABController = (
           .catch(error =>
             res.json({ sendStatus: false, statusMessage: error })
           );
+      } else {
+        res.json({
+          sendStatus: false,
+          statusMessage: `No message attached to bundle ${bundle.info.name} for app ${bundle.appName}`
+        });
       }
     };
     findBundle(versionHash, filename, (error, bundle) =>
