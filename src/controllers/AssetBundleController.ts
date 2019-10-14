@@ -70,7 +70,6 @@ const findBundleCallback = (
   bundle: IRemoteAssetBundleDocument | null,
   callback: RemoteAssetBundleFoundHandler
 ): void => {
-  console.log(error, bundle);
   if (error) handleMongooseError(res, error);
   if (bundle) {
     callback(bundle);
