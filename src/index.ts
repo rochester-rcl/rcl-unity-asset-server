@@ -9,15 +9,13 @@ import mongoose, { Mongoose } from "mongoose";
 import GridFsStorage from "multer-gridfs-storage";
 import MongoDB from "mongodb";
 import { preprocessFileUpload, assetBundleFilter } from "./utils/FileUtils";
+import dotenv from "dotenv";
+dotenv.config();
 import {
   authenticateJWTBearer,
   PRIVATE_KEY_PATH,
   PUBLIC_KEY_PATH
 } from "./utils/AuthUtils";
-
-
-import dotenv from "dotenv";
-dotenv.config();
 
 const initMongo = (): Promise<mongoose.Connection> => {
   return new Promise((resolve, reject) => {

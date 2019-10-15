@@ -5,12 +5,60 @@ import {
   ExtractJwt,
   StrategyOptions
 } from "passport-jwt";
+import config from "../../server-config";
 import passport = require("passport");
+const { generateKeyPair } = require("crypto");
 
 export type IJWTPayload = object | string | Buffer;
 
 export const PRIVATE_KEY_PATH = process.env.PRIVATE_KEY_PATH || "private.key";
 export const PUBLIC_KEY_PATH = process.env.PUBLIC_KEY_PATH || "public.key";
+
+const createKeyPair = (): Promise<string[]> => {
+  return new Promise((resolve, reject) => {
+    generateKeyPair(
+      "rsa",
+      {
+        modulusLength: 4096,
+        publicKeyEncoding: {
+          type: "spki",
+          format: "pem"
+        },
+        privateKeyEncoding: {
+          type: "pkcs8",
+          format: "pem",
+          cipher: "aes-256-cbc",
+          passphrase: config.privateKey,
+        }
+      },
+      (err: Error, publicKey: string, privateKey: string) => {
+        if (err) reject(err);
+        resolve([publicKey, privateKey]);
+      }
+    );
+  });
+};
+
+const writeKeyPair = (keyPath: string, keyPair: string[]): Promise<void> => {
+  const privatePath = keyPath;
+  const publicPath = `${keyPath.split(".")[0]}-public.pem`;
+  const [publicKey, privateKey] = keyPair;
+  return new Promise((resolve, reject) => {
+    fs.writeFile(privatePath, privateKey, { encoding: "utf8" }, error => {
+      if (error) reject(error);
+      fs.writeFile(publicPath, publicKey, { encoding: "utf8" }, error => {
+        if (error) reject(error);
+        resolve();
+      });
+    });
+  });
+};
+
+export const saveKeyPair = (keyPath: string): Promise<void> => {
+  return createKeyPair()
+    .then(pair => writeKeyPair(keyPath, pair))
+    .catch(error => console.error(error));
+};
 
 // TODO add expiration - this might be overkill
 export const signJWT = (
@@ -19,7 +67,8 @@ export const signJWT = (
 ): string | null => {
   try {
     const privateKey = fs.readFileSync(privateKeyPath, "utf8");
-    return jwt.sign(payload, privateKey, { algorithm: "RS256" });
+    const passphrase = config.privateKey;
+    return jwt.sign(payload, { key: privateKey, passphrase }, { algorithm: "RS256" });
   } catch (error) {
     console.log("JWT Signing Failed!");
     console.log(error);
@@ -61,18 +110,20 @@ export const saveJWT = (
   payload: IJWTPayload,
   privateKeyPath: string,
   outPath: string
-): boolean => {
-  const token = signJWT(payload, privateKeyPath);
-  if (token) {
-    try {
-      fs.writeFileSync(outPath, token, { encoding: "utf8" });
-      return true;
-    } catch (error) {
-      console.log(error);
-      return false;
+): Promise<boolean> => {
+  return saveKeyPair(privateKeyPath).then(() => {
+    const token = signJWT(payload, privateKeyPath);
+    if (token) {
+      try {
+        fs.writeFileSync(outPath, token, { encoding: "utf8" });
+        return Promise.resolve(true);
+      } catch (error) {
+        console.log(error);
+        return Promise.resolve(false);
+      }
     }
-  }
-  return false;
+    return Promise.resolve(false);
+  });
 };
 
 export const authenticateJWTBearer = (
