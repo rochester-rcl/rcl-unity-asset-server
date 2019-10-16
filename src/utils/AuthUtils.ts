@@ -28,7 +28,7 @@ const createKeyPair = (): Promise<string[]> => {
           type: "pkcs8",
           format: "pem",
           cipher: "aes-256-cbc",
-          passphrase: config.privateKey,
+          passphrase: config.privateKey
         }
       },
       (err: Error, publicKey: string, privateKey: string) => {
@@ -68,7 +68,11 @@ export const signJWT = (
   try {
     const privateKey = fs.readFileSync(privateKeyPath, "utf8");
     const passphrase = config.privateKey;
-    return jwt.sign(payload, { key: privateKey, passphrase }, { algorithm: "RS256" });
+    return jwt.sign(
+      payload,
+      { key: privateKey, passphrase },
+      { algorithm: "RS256" }
+    );
   } catch (error) {
     console.log("JWT Signing Failed!");
     console.log(error);
@@ -111,7 +115,21 @@ export const saveJWT = (
   privateKeyPath: string,
   outPath: string
 ): Promise<boolean> => {
-  return saveKeyPair(privateKeyPath).then(() => {
+  if (!fs.existsSync(privateKeyPath)) {
+    return saveKeyPair(privateKeyPath).then(() => {
+      const token = signJWT(payload, privateKeyPath);
+      if (token) {
+        try {
+          fs.writeFileSync(outPath, token, { encoding: "utf8" });
+          return Promise.resolve(true);
+        } catch (error) {
+          console.log(error);
+          return Promise.resolve(false);
+        }
+      }
+      return Promise.resolve(false);
+    });
+  } else {
     const token = signJWT(payload, privateKeyPath);
     if (token) {
       try {
@@ -123,7 +141,7 @@ export const saveJWT = (
       }
     }
     return Promise.resolve(false);
-  });
+  }
 };
 
 export const authenticateJWTBearer = (

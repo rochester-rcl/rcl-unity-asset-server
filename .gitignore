@@ -6,7 +6,7 @@
 
 # production
 /build
-
+/unity-asset-bundle-server
 # misc
 .DS_Store
 .env
