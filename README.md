@@ -1,7 +1,12 @@
 # RCL-UNITY-ASSET-SERVER
 *A simple NodeJS server application to store and retrieve Unity Asset Bundles*
 
+### Requirements
+NodeJS >= v11.*
+TypeScript >= v3.5.1 (if building from source)
+
 ### Installation
+
 First, make sure the [Typescript](https://github.com/Microsoft/TypeScript) compiler is globally installed:
 
 `npm install -g typescript`
@@ -11,7 +16,7 @@ Next, clone the repository and run
 
 ### Configuration
 #### Server Configuration
-The following options can be set in a file called *server-config.ts*:
+The following options can be set in a file called *server-config.js*:
 
 | Option     | Description                                                                    |
 |------------|--------------------------------------------------------------------------------|
@@ -29,6 +34,17 @@ To generate a JSON Web Token and private and public RSA keys, use the accompanyi
 
 `node utils/cli/generate-jwt.js -k [path to key.pem] -e [email address (or any string for payload)] -o [path to jwt.txt]`
 
+### Note: 
+
 For example:
- 
+
 `node utils/cli/generate-jwt.js -e jromphf@library.rochester.edu -o test-token.txt`
+
+Next, add the absolute paths to the private and public keys in a .env file at the root of the project folder:
+
+```
+PRIVATE_KEY_PATH = [path-to-private-key].pem
+PUBLIC_KEY_PATH = [path-to-public-key].pem
+```
+
+The resulting JWT text file can then be imported into a Unity project's Assets folder.
